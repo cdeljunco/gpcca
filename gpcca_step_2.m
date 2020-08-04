@@ -1,4 +1,4 @@
-function [ Pc, chi, A, wk, iopt ] = gpcca(P, sd, kmin, kmax, wk, iopt)
+function [ Pc, chi, A, wk, iopt ] = gpcca_step_2(kmin_opt, kmax_opt, wk, iopt)
 % This file is part of GPCCA.
 %
 % Copyright (c) 2020, 2018, 2017 Bernhard Reuter
@@ -164,20 +164,21 @@ function [ Pc, chi, A, wk, iopt ] = gpcca(P, sd, kmin, kmax, wk, iopt)
 % Zuse Institute Berlin, 2012
 %--------------------------------------------------------------------------
 
-%       make sure P, sd, kmin, kmax arent empty
-    assert(~isempty(P),'gpcca:EmptyInput','Variable P is empty') ;
-    assert(~isempty(sd),'gpcca:EmptyInput','Variable sd is empty') ;
-    assert(~isempty(kmin),'gpcca:EmptyInput','Variable kmin is empty') ;
-    assert(~isempty(kmax),'gpcca:EmptyInput','Variable kmax is empty') ;
 %       make sure kmin, kmax are integer values and kmin<=kmax
-    assert(mod(kmin,1) == 0, 'gpcca:k_InputError', ...
+    if (strcmp(class(kmin_opt), 'char'))
+        kmin_opt = str2double(kmin_opt);
+    end
+     assert(mod(kmin_opt,1) == 0, 'gpcca:k_InputError', ...
         'kmin is not an integer value') ;
-    assert(mod(kmax,1) == 0, 'gpcca:k_InputError', ...
+    if (strcmp(class(kmax_opt), 'char'))    
+	kmax_opt = str2double(kmax_opt);
+    end
+    assert(mod(kmax_opt,1) == 0, 'gpcca:k_InputError', ...
         'kmax is not an integer value') ;
-    assert(kmax >= kmin, 'gpcca:k_InputError', 'kmax !>= kmin') ;
+    assert(kmax_opt >= kmin_opt, 'gpcca:k_InputError', 'kmax !>= kmin') ;
 %	make sure that one isnt messing with wk.b
     if (wk.b > 0)
-        assert(wk.b >= kmax, 'gpcca:k_InputError', ['wk.b !>= kmax: ', ...
+        assert(wk.b >= kmax_opt, 'gpcca:k_InputError', ['wk.b !>= kmax: ', ...
             'The number of sorted eigenvalues needs to be larger ', ...
             'than the maximal number of clusters!']) ;
     elseif (wk.b < 0)
@@ -185,6 +186,20 @@ function [ Pc, chi, A, wk, iopt ] = gpcca(P, sd, kmin, kmax, wk, iopt)
             'are doing!'])
     end
 %--------------------------------------------------------------------------
+    %  initialize the workspace
+    [wk, fileid] = initialize_workspace(wk)
+    assert(~(wk.init==0 & wk.parallel==1), ...
+        'gpcca:IncompatibleOptionsError', ...
+        ['You choose parallel execution of the first optimization loop ' ...
+        'combined with initialization of A from file. These two ' ...
+        'options are mutually exclusive!']) ;
+   
+%   load the stochastic matrix P and the initial distribution sd
+    name = strcat(fileid,'-','P','.txt') ;
+    P = load_t(name, '-ascii', 'double');
+    name=strcat(fileid,'-','sd','.txt') ;
+    sd = load_t(name, '-ascii', 'double');
+
     class_t1 = class(P) ;
     class_t2 = class(sd) ;
     if (strcmpi(class_t1,class_t2))
@@ -220,43 +235,19 @@ function [ Pc, chi, A, wk, iopt ] = gpcca(P, sd, kmin, kmax, wk, iopt)
     end
 %   -----------------------------------------------------------------------
     
-%       initialize the workspace
-    [wk, fileid] = initialize_workspace(wk)
-    assert(~(wk.init==0 & wk.parallel==1), ...
-        'gpcca:IncompatibleOptionsError', ...
-        ['You choose parallel execution of the first optimization loop ' ...
-        'combined with initialization of A from file. These two ' ...
-        'options are mutually exclusive!']) ;
-    
     %       initialize recording to diary
     name = strcat(fileid,'-','diary','.txt') ;
     diary(name) ;
-    
-%       save the stochastic matrix P and the initial distribution sd
-    name=strcat(fileid,'-','P','.txt') ;
-    save_t(name,P,'-ascii')
-    name=strcat(fileid,'-','sd','.txt') ;
-    save_t(name,sd,'-ascii')
-    
-%       plot the stochastic matrix P
-    name=strcat(fileid,'-','P-plot') ;
-    plotmatrix(double(P),name) ;
-
+   
 %   -----------------------------------------------------------------------
 %   If you want to use gpcca on eigen- instead of Schur-vectors, replace the
 %   calculation and sd-orthonormalization of the Schur-vectors by the
 %   calculation and sd-orthonormalization of the eigenvectors. The
 %   sd-orthonormalization is imperative for the correct function of the 
 %   following implementation of GPCCA!
-    if (wk.schur == 1)
-            
-        [ X, RR ]  = do_schur( P, sd, fileid, wk.b ) ;
-
-    else
-    
-        inputname = inputT(['Enter the name of the ordered Schurvectors ',...
-            'to use for GPCCA (IN QUOTES): '],'inputname') ;
-        X = load_t(inputname,'-ascii',num_t) ;
+     	%Read in Schur vectors, etc.
+	inputname = strcat(fileid, '-X.txt')
+     	X = load_t(inputname,'-ascii',num_t) ;
         dummy = (X'*diag(sd)*X - num_t(eye(size(X,2))) > (num_t('10000')*eps(num_t))) ;
         assert(~any(dummy(:)),'gpcca:X_OrthogonalityError', ...
             'Schurvectors appear to not be orthogonal')
@@ -264,10 +255,9 @@ function [ Pc, chi, A, wk, iopt ] = gpcca(P, sd, kmin, kmax, wk, iopt)
         dummy = ( abs(X(:,1) - 1) < ( numeric_t('1000') * eps(numeric_t) ) ) ;
         assert(all(dummy(:)), 'gpcca:FirstColumnError', ...
             'X(:,1) isnt equal 1!')
-        
-        inputname = inputT(['Enter the name of the ordered Schurmatrix ',...
-            'matching to X to use for GPCCA (IN QUOTES): '],'inputname') ;
-        RR = load_t(inputname,'-ascii','double') ;
+       
+        inputname = strcat(fileid, '-RR.txt')
+	RR = load_t(inputname,'-ascii','double') ;
 %           check RR for correctness
         assert(size(RR,1)==size(RR,2),'gpcca:MatrixShapeError1', ...
         'RR Matrix is not quadratic but %d x %d',size(RR,1),size(RR,2))
@@ -276,9 +266,6 @@ function [ Pc, chi, A, wk, iopt ] = gpcca(P, sd, kmin, kmax, wk, iopt)
         ['The number of rows size(X,1)=%d of X doesnt match with the ', ...
         'shape (%d,%d) of RR!'],...
         size(X,1), size(RR,1), size(RR,2) )
-            
-    end
-%   -----------------------------------------------------------------------
 
     [ badblocks, badblockrows ] = find_twoblocks( double(X), double(RR), fileid ) ;
     clearvars RR
@@ -296,44 +283,6 @@ function [ Pc, chi, A, wk, iopt ] = gpcca(P, sd, kmin, kmax, wk, iopt)
     %pi = double(pi) ;
     P = double(P) ;
 
-%   -----------------------------------------------------------------------
-
-    disp (' ')
-    disp ('Decide, if you want to apply the minChi-Criterion.')
-    minChi_switch = inputT(['If you want to use minChi, type 1, ' ...
-        'else type 0: '], 'minChi_switch') ;
-    disp (' ')
-    if isempty(minChi_switch) || (minChi_switch~=0 && minChi_switch~=1)
-        error('invalid input')
-    elseif minChi_switch==0
-        disp ('minChi-Criterion wont be used')
-    else    % start of minChi procedure
-    
-        [ ~ ] = use_minChi( EVS, kmin, kmax, fileid ) ;
-        
-    end     % end of minChi procedure
-
-%   -----------------------------------------------------------------------
-
-    disp(' ')
-    kmin = inputT(['Your choice for the number of clusters to start ' ...
-        'the optimization step: '],'kmin') ;
-    kmax = inputT(['Your choice for the number of clusters to end the ' ...
-        'optimization step: '],'kmax') ;
-    disp(' ')
-
-%       make sure kmin and kmax are defined
-    assert(~isempty(kmin),'gpcca:EmptyKeyboardInput', ...
-        'Variable kmin is empty') ;
-    assert(~isempty(kmax),'gpcca:EmptyKeyboardInput', ...
-        'Variable kmax is empty') ;
-%       make sure kmin, kmax are integer values and kmin<=kmax
-    assert(mod(kmin,1) == 0, 'gpcca:KeyboardInputError', ...
-        'kmin is not an integer value') ;
-    assert(mod(kmax,1) == 0, 'gpcca:KeyboardInputError', ...
-        'kmax is not an integer value') ;
-    assert(kmax >= kmin, 'gpcca:KeyboardInputError', 'kmax !>= kmin') ;
-
 
 %       decide for "best" number of clusters (other criteria are possible):
 %       the optimal value for trace(S) can be at most kt
@@ -347,162 +296,147 @@ function [ Pc, chi, A, wk, iopt ] = gpcca(P, sd, kmin, kmax, wk, iopt)
 
     assert(isa(EVS,num_t),'gpcca:EVS_DataTypeError', ...
         'Variable is type %s not %s',class(EVS),num_t)
-    
+   %in this version of the script I am using the same kmin and kmax everywhere
+   kmin = kmin_opt;
+   kmax = kmax_opt;    
 %       initialize A
     A_cell = cell([1,kmax]) ;
+    optimization_ks = kmax - kmin + 1;
     for kt = kmin:kmax
         if badblocks(kt) == false
             evs = EVS(:,1:kt) ;
             A_cell{kt} = initialize_A(evs, wk.init) ;
+	else 
+	    optimization_ks = optimization_ks - 1;
         end
     end
-    
-    [ Pc, A_cell, chi, val_vec, opt_vec ] = optimization_loop( P, sd, ...
-        double(EVS), A_cell, kmin, kmax, wk, fileid ) ;
-    A = A_cell{kmax} ;
-    
-%   -----------------------------------------------------------------------
-
-%       save the 'val'-vector and the crispness-vector
-    name=strcat(fileid,'-','opt_vec','-','n=',int2str(kmin),'-', ...
-        int2str(kmax),'.txt') ;
-    save_t(name,opt_vec,'-ascii')
-    name=strcat(fileid,'-','val_vec','-','n=',int2str(kmin),'-', ...
-        int2str(kmax),'.txt') ;
-    save_t(name,val_vec,'-ascii')
-
-%       plot the crispness over the number of clusters    
-    fig5 = figure ;
-    plot(kmin:kmax,opt_vec(:,2),'-x')
-    xlabel('number of clusters')
-    ylabel('crispness')
-    name=strcat(fileid,'-','crispness-figure','-','n=',int2str(kmin), ...
-        '-',int2str(kmax)) ;
-    h = gcf ; % Current figure handle
-    set(h,'PaperPositionMode','manual') ;
-    set(h,'PaperUnits','inches') ;
-    set(h,'PaperPosition',[0 0 3.33 2.63]) ;
-    set(h,'PaperUnits','inches') ;
-    set(h,'PaperSize',[3.33 2.63]) ;
-    savefig(fig5,strcat(name,'.fig'),'compact')
-    print(fig5,strcat(name,'.pdf'),'-dpdf')
-    print(fig5,strcat(name,'.png'),'-dpng','-r600')
- 
-%   -----------------------------------------------------------------------
-
-%       initialize optional parameters for optional final optimization 
-    [iopt, fileid, final_opt] = initialize_optional(iopt, wk.id)
-    
-%       test, if final optimization shall be performed
-    if final_opt == true
-        
-        assert(~(iopt.init==0 & iopt.parallel==1), ...
-        'gpcca:IncompatibleOptionsError', ...
-        ['You choose parallel execution of the optional optimization loop ' ...
-        'combined with initialization of A from file. These two ' ...
-        'options are mutually exclusive!']) ;
-        
-%           change the diary
-        name = strcat(fileid,'-','diary','.txt') ;
-        diary(name) ;
-    
-%       -------------------------------------------------------------------
-%           optional final optimization for beforehand determined optimal
-%           cluster number
-        
-        disp(' ')
-        koptmin = inputT(['Your choice for the number of clusters to ' ...
-            'start the final optimization step: '],'koptmin') ;
-        koptmax = inputT(['Your choice for the number of clusters to end ' ...
-            'the final optimization step: '],'koptmax') ;
-        disp (' ')
-%           make sure koptmin and koptmax are defined
-        assert(~isempty(koptmin),'gpcca:EmptyKeyboardInput', ...
-            'Variable koptmin is empty') ;
-        assert(~isempty(koptmax),'gpcca:EmptyKeyboardInput', ...
-            'Variable koptmax is empty') ;
-%           make sure koptmin, koptmax are integer values and 
-%           koptmin<=koptmax
-        assert(mod(koptmin,1) == 0, 'gpcca:KeyboardInputError', ...
-            'koptmin is not an integer value') ;
-        assert(mod(koptmax,1) == 0, 'gpcca:KeyboardInputError', ...
-            'koptmax is not an integer value') ;
-        assert(koptmax >= koptmin, 'gpcca:KeyboardInputError', ...
-            'koptmax !>= koptmin') ;
-        disp (' ')
-        disp ('Perform final optimization')
-        disp ('==========================')
-        disp (' ')
-    
-        assert(isa(EVS,num_t),'gpcca:EVS_DataTypeError', ...
-            'Variable is type %s not %s', class(EVS), num_t)
-        
-%           initialize A_cell, if iopt.init~=2, else use A_cell from the
-%           previous optimization
-        if ( iopt.init == 0 || iopt.init == 1 )  
-            A_cell = cell([1,koptmax]) ;
-            for kt = koptmin:koptmax
-                if badblocks(kt) == false
-                    evs = EVS(:,1:kt) ;
-                    A_cell{kt} = initialize_A(evs, wk.init) ;
-                end
-            end
-        elseif iopt.init == 2
-            assert( koptmin >= kmin, 'gpcca:KeyboardInputError', ...
-            ['You choosed to use the optimized A matrices from the first '...
-            'optimization loop as input for the final optimization but '...
-            'koptmin is smaller than kmin!'] ) ;
-        	assert( koptmax <= kmax, 'gpcca:KeyboardInputError', ...
-            ['You choosed to use the optimized A matrices from the first '...
-            'optimization loop as input for the final optimization but '...
-            'koptmax is bigger than kmax!'] ) ;
-        else 
-            error('gpcca:IoptInitError',['Couldnt '...
-            'initialize A for the final optimization since iopt.init ' ...
-            'was neither =0, =1 nor =2!'])
-        end
-        
-        [ Pc, A_cell, chi, val_vec, opt_vec ] = optimization_loop( P, sd,...
-            double(EVS), A_cell, koptmin, koptmax, iopt, fileid ) ;
-        A = A_cell{koptmax} ;
-        
-%       -------------------------------------------------------------------
-
-%           plot the crispness over the number of clusters, if more than
-%           one final optimization was performed
-        if koptmax > koptmin
    
-            fig6 = figure ;
-            plot(koptmin:koptmax,opt_vec(:,2),'-x')
-            xlabel('number of clusters')
-            ylabel('crispness')
-            name=strcat(fileid,'-','crispness-figure','-','n=', ...
-                int2str(koptmin),'-',int2str(koptmax)) ;
-            h = gcf ; % Current figure handle
-            set(h,'PaperPositionMode','manual') ;
-            set(h,'PaperUnits','inches') ;
-            set(h,'PaperPosition',[0 0 3.33 2.63]) ;
-            set(h,'PaperUnits','inches') ;
-            set(h,'PaperSize',[3.33 2.63]) ;
-            savefig(fig6,strcat(name,'.fig'),'compact')
-            print(fig6,strcat(name,'.pdf'),'-dpdf')
-            print(fig6,strcat(name,'.png'),'-dpng','-r600')
-            
-%               save the 'val'-vector and the crispness-vector
-            name=strcat(fileid,'-','opt_vec','-','n=',int2str(koptmin),'-', ...
-                int2str(koptmax),'.txt') ;
-            save_t(name,opt_vec,'-ascii')
-            name=strcat(fileid,'-','val_vec','-','n=',int2str(koptmin),'-', ...
-                int2str(koptmax),'.txt') ;
-            save_t(name,val_vec,'-ascii')
-        
-        end
-        
-%       -------------------------------------------------------------------
-
+    if optimization_ks > 0 
+    	[ Pc, A_cell, chi, val_vec, opt_vec ] = optimization_loop( P, sd, ...
+        	double(EVS), A_cell, kmin_opt, kmax_opt, wk, fileid ) ;
+    	A = A_cell{kmax} ;
+	%   -----------------------------------------------------------------------
+	
+	%       save the 'val'-vector and the crispness-vector
+	    name=strcat(fileid,'-','opt_vec','-','n=',int2str(kmin),'-', ...
+	        int2str(kmax),'.txt') ;
+	    save_t(name,opt_vec,'-ascii')
+	    name=strcat(fileid,'-','val_vec','-','n=',int2str(kmin),'-', ...
+	        int2str(kmax),'.txt') ;
+	    save_t(name,val_vec,'-ascii')
+	
+	%       plot the crispness over the number of clusters    
+	    fig5 = figure ;
+	    plot(kmin:kmax,opt_vec(:,2),'-x')
+	    xlabel('number of clusters')
+	    ylabel('crispness')
+	    name=strcat(fileid,'-','crispness-figure','-','n=',int2str(kmin), ...
+	        '-',int2str(kmax)) ;
+	    h = gcf ; % Current figure handle
+	    set(h,'PaperPositionMode','manual') ;
+	    set(h,'PaperUnits','inches') ;
+	    set(h,'PaperPosition',[0 0 3.33 2.63]) ;
+	    set(h,'PaperUnits','inches') ;
+	    set(h,'PaperSize',[3.33 2.63]) ;
+	    savefig(fig5,strcat(name,'.fig'),'compact')
+	    print(fig5,strcat(name,'.pdf'),'-dpdf')
+	    print(fig5,strcat(name,'.png'),'-dpng','-r600')
+	 
+	%   -----------------------------------------------------------------------
+	
+	%       initialize optional parameters for optional final optimization 
+	    [iopt, fileid, final_opt] = initialize_optional(iopt, wk.id)
+	    
+	%       test, if final optimization shall be performed
+	    if final_opt == true
+	        
+	        assert(~(iopt.init==0 & iopt.parallel==1), ...
+	        'gpcca:IncompatibleOptionsError', ...
+	        ['You choose parallel execution of the optional optimization loop ' ...
+	        'combined with initialization of A from file. These two ' ...
+	        'options are mutually exclusive!']) ;
+	        
+	%           change the diary
+	        name = strcat(fileid,'-','diary','.txt') ;
+	        diary(name) ;
+	    
+	%       -------------------------------------------------------------------
+	%           optional final optimization for beforehand determined optimal
+	%           cluster number
+	        
+	        disp (' ')
+	        disp ('Perform final optimization')
+	        disp ('==========================')
+	        disp (' ')
+	    
+	        assert(isa(EVS,num_t),'gpcca:EVS_DataTypeError', ...
+	            'Variable is type %s not %s', class(EVS), num_t)
+	       
+		%in this version of the script I am using the same kmin and kmax everywhere 
+		koptmax = kmax_opt;
+		koptmin = kmin_opt;
+	%           initialize A_cell, if iopt.init~=2, else use A_cell from the
+	%           previous optimization
+	        if ( iopt.init == 0 || iopt.init == 1 )  
+	            A_cell = cell([1,koptmax]) ;
+	            for kt = koptmin:koptmax
+	                if badblocks(kt) == false
+	                    evs = EVS(:,1:kt) ;
+	                    A_cell{kt} = initialize_A(evs, wk.init) ;
+	                end
+	            end
+	        elseif iopt.init == 2
+	        else 
+	            error('gpcca:IoptInitError',['Couldnt '...
+	            'initialize A for the final optimization since iopt.init ' ...
+	            'was neither =0, =1 nor =2!'])
+	        end
+	        
+	        [ Pc, A_cell, chi, val_vec, opt_vec ] = optimization_loop( P, sd,...
+	            double(EVS), A_cell, koptmin, koptmax, iopt, fileid ) ;
+	        A = A_cell{koptmax} ;
+	        
+	%       -------------------------------------------------------------------
+	
+	%           plot the crispness over the number of clusters, if more than
+	%           one final optimization was performed
+	        if koptmax > koptmin
+	   
+	            fig6 = figure ;
+	            plot(koptmin:koptmax,opt_vec(:,2),'-x')
+	            xlabel('number of clusters')
+	            ylabel('crispness')
+	            name=strcat(fileid,'-','crispness-figure','-','n=', ...
+	                int2str(koptmin),'-',int2str(koptmax)) ;
+	            h = gcf ; % Current figure handle
+	            set(h,'PaperPositionMode','manual') ;
+	            set(h,'PaperUnits','inches') ;
+	            set(h,'PaperPosition',[0 0 3.33 2.63]) ;
+	            set(h,'PaperUnits','inches') ;
+	            set(h,'PaperSize',[3.33 2.63]) ;
+	            savefig(fig6,strcat(name,'.fig'),'compact')
+	            print(fig6,strcat(name,'.pdf'),'-dpdf')
+	            print(fig6,strcat(name,'.png'),'-dpng','-r600')
+	            
+	%               save the 'val'-vector and the crispness-vector
+	            name=strcat(fileid,'-','opt_vec','-','n=',int2str(koptmin),'-', ...
+	                int2str(koptmax),'.txt') ;
+	            save_t(name,opt_vec,'-ascii')
+	            name=strcat(fileid,'-','val_vec','-','n=',int2str(koptmin),'-', ...
+	                int2str(koptmax),'.txt') ;
+	            save_t(name,val_vec,'-ascii')
+	        
+	        end
+	        
+	%       -------------------------------------------------------------------
+	
+	    end
+	
+	%   -----------------------------------------------------------------------
+	    set(0,'DefaultFigureVisible','on');  % all subsequent figures visible
+	    diary OFF ;
     end
+    %else
+    % 	[ Pc, A_cell, chi, val_vec, opt_vec ] = [0, 0, 0, 0, 0]
 
-%   -----------------------------------------------------------------------
-    set(0,'DefaultFigureVisible','on');  % all subsequent figures visible
-    diary OFF ;
 end

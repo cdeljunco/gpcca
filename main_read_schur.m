@@ -1,5 +1,3 @@
-function exitcode = main(count_matrix_no_ext, kmin, kmax)
-
 % This file is part of GPCCA.
 %
 % Copyright (c) 2018, 2017 Bernhard Reuter
@@ -50,10 +48,10 @@ disp (['precision to use in sensitive numerics ' ...
 % -------------------------------------------------------------------------
 
 %   Parameters for gpcca
-%kmin                        % minimum number of clusters
-%kmax                       % maximum number of clusters
+kmin = 2                        % minimum number of clusters
+kmax = 100                       % maximum number of clusters
 %wk.id = 'kaic-test-2' ;
-wk.schur = 1 ;                  % calculate Schurvectors (schur=1) 
+wk.schur = 0 ;                  % calculate Schurvectors (schur=1) 
                                 % or use existing from file (schur=0)
 wk.b = 0 ;                      % if b < 0 then -b blocks will be sorted,
                                 % if b > 0 then  b or b+1 eigenvalues will 
@@ -138,7 +136,3 @@ disp('parameters for the first optimization procedure:')
 disp(wk)
 disp('parameters for the optional optimization procedure:')
 disp(iopt)
-
-exitcode = 0
-
-end

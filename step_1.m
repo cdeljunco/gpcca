@@ -1,4 +1,4 @@
-function exitcode = main(count_matrix_no_ext, kmin, kmax)
+function exitcode = step_1(count_matrix_no_ext, kmin, kmax)
 
 % This file is part of GPCCA.
 %
@@ -89,11 +89,15 @@ iopt.parallel = 0 ;
 %   and call gpcca rotine gpcca.m
 
 %   load the count matrix from file
-disp (' ')
-COUNTMATRIX = input('Enter the name of the matrix file (IN QUOTES): ') ;
-wk.id = input('Enter the id of this simulation (to be used in output file names) (IN QUOTES): ') ;
+%disp (' ')
+%COUNTMATRIX = input('Enter the name of the matrix file (IN QUOTES): ') ;
+%wk.id = input('Enter the id of this simulation (to be used in output file names) (IN QUOTES): ') ;
+
+COUNTMATRIX = strcat(count_matrix_no_ext, '.txt')
+wk.id = count_matrix_no_ext
+
 Tc = load_t(COUNTMATRIX,'-ascii',class_t) ;
-MATRIXTYPE = input('Enter 0 if the matrix is a count matrix or 1 if it is a probability matrix: ') ;
+%MATRIXTYPE = input('Enter 0 if the matrix is a count matrix or 1 if it is a probability matrix: ') ;
 
 assert(isa(Tc,numeric_t),'main:Tc_DataTypeError', ...
     		'Variable is type %s not %s',class(Tc),numeric_t)
@@ -104,21 +108,21 @@ assert(~any(sum(Tc,2) < numeric_t('0.99')),'main:ZeroRowError', ...
     'Matrix has rows with rowsum zero')
 
 
-if MATRIXTYPE == 0
+%if MATRIXTYPE == 0
 
-	dummy = (mod(Tc,1) ~= 0) ;
-	assert(~any(dummy(:)), ...
+dummy = (mod(Tc,1) ~= 0) ;
+assert(~any(dummy(:)), ...
     		'main:Tc_DataError','Tc doesnt seem to be a count matrix')
-	clearvars dummy
+clearvars dummy
 	
 	%   calculate stochastic matrix P from the count matrix Tc
-	P = diag(numeric_t('1.0')./sum(Tc,2)) * Tc ;
+P = diag(numeric_t('1.0')./sum(Tc,2)) * Tc ;
 
-elseif MATRIXTYPE == 1
+%elseif MATRIXTYPE == 1
 
-	P = Tc;
+%	P = Tc;
 
-end	
+%end	
 
 assert(isa(P,numeric_t),'main:P_DataTypeError', ...
     	'Variable is type %s not %s',class(P),numeric_t)
@@ -132,13 +136,10 @@ assert(isa(sd,numeric_t),'main:sd_DataTypeError', ...
     'Variable is type %s not %s',class(sd),numeric_t)
 assert(all(sd > numeric_t('0.0')),'ZeroError', 'Not all elements of sd are >0!')
 
-%   perform GPCCA
-[Pc, chi, A, wk, iopt] = gpcca(P, sd, kmin, kmax, wk, iopt) ;
-disp('parameters for the first optimization procedure:')
-disp(wk)
-disp('parameters for the optional optimization procedure:')
-disp(iopt)
+%   perform Schur decomposition and minChi calculation
+gpcca_step_1(P, sd, kmin, kmax, wk, iopt) ;
 
 exitcode = 0
 
 end
+
