@@ -52,7 +52,7 @@ disp (['precision to use in sensitive numerics ' ...
 %   Parameters for gpcca
 %kmin                        % minimum number of clusters
 %kmax                       % maximum number of clusters
-%wk.id = 'kaic-test-2' ;
+wk.id = 'kaic-test-2' ;
 wk.schur = 1 ;                  % calculate Schurvectors (schur=1) 
                                 % or use existing from file (schur=0)
 wk.b = 0 ;                      % if b < 0 then -b blocks will be sorted,

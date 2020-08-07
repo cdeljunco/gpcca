@@ -88,9 +88,6 @@ iopt.parallel = 0 ;
 %   and call gpcca rotine gpcca.m
 
 %   load the count matrix from file
-%disp (' ')
-%COUNTMATRIX = input('Enter the name of the matrix file (IN QUOTES): ') ;
-%wk.id = input('Enter the id of this simulation (to be used in output file names) (IN QUOTES): ') ;
 
 COUNTMATRIX = strcat(count_matrix_no_ext, '.txt')
 wk.id = count_matrix_no_ext

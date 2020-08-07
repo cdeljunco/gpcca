@@ -271,20 +271,8 @@ function [ Pc, chi, A, wk, iopt ] = gpcca_step_1(P, sd, kmin, kmax, wk, iopt)
 
 %   -----------------------------------------------------------------------
 
-    %disp (' ')
-    %disp ('Decide, if you want to apply the minChi-Criterion.')
-    %minChi_switch = inputT(['If you want to use minChi, type 1, ' ...
-    %    'else type 0: '], 'minChi_switch') ;
-    %disp (' ')
-    %if isempty(minChi_switch) || (minChi_switch~=0 && minChi_switch~=1)
-    %    error('invalid input')
-    %elseif minChi_switch==0
-    %    disp ('minChi-Criterion wont be used')
-    %else    % start of minChi procedure
     [ ~ ] = use_minChi( EVS, kmin, kmax, fileid ) ;
         
-    %end     % end of minChi procedure
-
 %   -----------------------------------------------------------------------
 
 

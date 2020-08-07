@@ -50,9 +50,9 @@ disp (['precision to use in sensitive numerics ' ...
 % -------------------------------------------------------------------------
 
 %   Parameters for gpcca
-%kmin                        % minimum number of clusters
-%kmax                       % maximum number of clusters
-%wk.id = 'kaic-test-2' ;
+%kmin                        	% minimum number of clusters for minchi
+%kmax                       	% maximum number of clusters for minchi
+%wk.id				%name of output files, automatically the name of the count matrix file without the file extension 
 wk.schur = 1 ;                  % calculate Schurvectors (schur=1) 
                                 % or use existing from file (schur=0)
 wk.b = 0 ;                      % if b < 0 then -b blocks will be sorted,
@@ -86,18 +86,14 @@ iopt.parallel = 0 ;
 % -------------------------------------------------------------------------
 
 %   read the count matrix from file, calculate the stochastic matrix,
-%   and call gpcca rotine gpcca.m
+%   and call gpcca routine gpcca.m
 
 %   load the count matrix from file
-%disp (' ')
-%COUNTMATRIX = input('Enter the name of the matrix file (IN QUOTES): ') ;
-%wk.id = input('Enter the id of this simulation (to be used in output file names) (IN QUOTES): ') ;
 
 COUNTMATRIX = strcat(count_matrix_no_ext, '.txt')
 wk.id = count_matrix_no_ext
 
 Tc = load_t(COUNTMATRIX,'-ascii',class_t) ;
-%MATRIXTYPE = input('Enter 0 if the matrix is a count matrix or 1 if it is a probability matrix: ') ;
 
 assert(isa(Tc,numeric_t),'main:Tc_DataTypeError', ...
     		'Variable is type %s not %s',class(Tc),numeric_t)
@@ -107,9 +103,6 @@ assert(size(Tc,1)==size(Tc,2),'main:Tc_MatrixShapeError', ...
 assert(~any(sum(Tc,2) < numeric_t('0.99')),'main:ZeroRowError', ...
     'Matrix has rows with rowsum zero')
 
-
-%if MATRIXTYPE == 0
-
 dummy = (mod(Tc,1) ~= 0) ;
 assert(~any(dummy(:)), ...
     		'main:Tc_DataError','Tc doesnt seem to be a count matrix')
@@ -117,12 +110,6 @@ clearvars dummy
 	
 	%   calculate stochastic matrix P from the count matrix Tc
 P = diag(numeric_t('1.0')./sum(Tc,2)) * Tc ;
-
-%elseif MATRIXTYPE == 1
-
-%	P = Tc;
-
-%end	
 
 assert(isa(P,numeric_t),'main:P_DataTypeError', ...
     	'Variable is type %s not %s',class(P),numeric_t)

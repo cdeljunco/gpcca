@@ -26,7 +26,6 @@ function [ Pc, chi, A, wk, iopt ] = gpcca_step_2_klist(klist, wk, iopt)
 % This algorithm generates a fuzzy clustering such that the resulting
 % membership functions are as crisp (characteristic) as possible.
 %
-% [ Pc, chi, A, wk, iopt ] = gpcca( P, sd, kmin, kmax, wk, iopt )
 %
 % Input:
 %   P                   (N,N)-matrix to be clustered (row-stochastic)

@@ -2,7 +2,7 @@ Last updated: April 29, 2020
 
 This folder contains tests of the G-PCCA algorithm on several models. Read this file to learn how to run the algorithm.
 
-The original algorithm that I got from Bernhard Reuter is run from the file main.m. It is completely interactive and requires the user to input the count matrix and select several options while it is running.
+The original algorithm that I got from Bernhard Reuter is run from the file main_interactive.m. It is completely interactive and requires the user to input the count matrix and select several options while it is running. A slightly modified version is in main.m which takes the file name of the count matrix and kmin and kmax as arguments. 
 
 I wanted to automate the process so I split up the algorith into 2 parts:
 
@@ -32,10 +32,11 @@ I wanted to automate the process so I split up the algorith into 2 parts:
 	good: [ k1 k2 k3 k4 ]
 	bad:  [k1 k2 k3] or [ k1 k2 k3] etc
 	
-The workflow for running G-PCCA that I have set up is as follows:
+In addition, I've written some batch file and bash scripts to facilitate running the code on midway. The workflow for running G-PCCA on midway that I have set up is as follows:
 
-- Put the count matrices to be analyzed in the folder ~/G-PCCA/Count_Matrices
+- Put the count matrices to be analyzed in the folder ~/G-PCCA/Count_Matrices. 	COUNT MATRICES MUST HAVE .TXT EXTENSION
 - Symlink to this folder (~/G-PCCA) in the scratch folder (~/scratch/G-PCCA)
+	- NOTE ON THIS: creating the results files in a symlinked folder has weird behavior. It may be better to just copy the code and count matrices to wherever it needs to be run (scratch) and then copy the results to a long term storage location. 
 - Modify run_both_steps_sbatch.sh with the appropriate parameters for the name of the count matrix and k values for each step of the analysis
-- Running run_both_steps_sbatch.sh will write sbatch files for each set of parameters and submit jobs for step 1 and step 2. It makes sure that step 1 has successfully completed before running step 2. Right now step 2 will still run if step 1 fails, but it will also fail promptly. This will hopefully be updated so that the step 2 job gets cancelled if step 1 fails.
+- Running run_both_steps_sbatch.sh will write sbatch files for each set of parameters and submit jobs for step 1 and step 2. It makes sure that step 1 has successfully completed before running step 2. Right now step 2 will still run if step 1 fails, but it will also fail promptly. A to-do item is to modify this so that the step 2 job gets cancelled if step 1 fails.
 
